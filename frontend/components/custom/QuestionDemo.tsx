@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 
+// Demo quiz data for testing UI without backend connection
 const demoQuiz = {
   id: "demo-quiz",
   title: "Demo Quiz",
@@ -35,6 +36,7 @@ const QuestionDemo = () => {
 
   const currentQuestion = demoQuiz.questions[currentIndex];
 
+  // Handle option selection in demo mode
   const handleOptionClick = (option: string) => {
     if (!selectedOption) {
       setSelectedOption(option);
@@ -42,6 +44,7 @@ const QuestionDemo = () => {
     }
   };
 
+  // Navigate to next question
   const goToNext = () => {
     if (currentIndex < demoQuiz.questions.length - 1) {
       setCurrentIndex((prev) => prev + 1);
@@ -50,6 +53,7 @@ const QuestionDemo = () => {
     }
   };
 
+  // Navigate to previous question
   const goToPrevious = () => {
     if (currentIndex > 0) {
       setCurrentIndex((prev) => prev - 1);
@@ -61,9 +65,9 @@ const QuestionDemo = () => {
   const isCorrect = selectedOption === currentQuestion.answer;
 
   return (
-    <div className="flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+    <div className="flex items-center justify-center">
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full">
-        <h1 className="text-2xl font-bold mb-2 text-center">
+        <h1 className="text-2xl font-bold mb-2 text-center text-gray-800 dark:text-white">
           {demoQuiz.title}
         </h1>
         <p className="mb-4 text-gray-700 dark:text-gray-300 text-center">
@@ -71,7 +75,7 @@ const QuestionDemo = () => {
         </p>
 
         <div className="mb-4">
-          <h2 className="text-lg font-semibold mb-2">
+          <h2 className="text-lg font-semibold mb-2 text-gray-800 dark:text-white">
             Q{currentIndex + 1}. {currentQuestion.question}
           </h2>
           <ul className="space-y-2">
@@ -90,7 +94,7 @@ const QuestionDemo = () => {
                 }
               } else {
                 optionClass +=
-                  " border-gray-300 hover:bg-blue-100 dark:hover:bg-blue-900";
+                  " border-gray-300 hover:bg-blue-100 dark:hover:bg-blue-900 text-gray-800 dark:text-gray-200";
               }
 
               return (
@@ -105,6 +109,7 @@ const QuestionDemo = () => {
             })}
           </ul>
 
+          {/* Show result feedback */}
           {showResult && (
             <p
               className={`mt-4 text-center font-semibold ${
@@ -118,6 +123,7 @@ const QuestionDemo = () => {
           )}
         </div>
 
+        {/* Navigation buttons */}
         <div className="flex justify-between mt-6">
           <button
             onClick={goToPrevious}
@@ -128,8 +134,12 @@ const QuestionDemo = () => {
                 : "bg-blue-500 hover:bg-blue-600 text-white"
             }`}
           >
-            Previous
+            ← Previous
           </button>
+
+          <span className="flex items-center text-gray-600 dark:text-gray-400">
+            {currentIndex + 1} / {demoQuiz.questions.length}
+          </span>
 
           <button
             onClick={goToNext}
@@ -140,7 +150,7 @@ const QuestionDemo = () => {
                 : "bg-green-500 hover:bg-green-600 text-white"
             }`}
           >
-            Next
+            Next →
           </button>
         </div>
       </div>
