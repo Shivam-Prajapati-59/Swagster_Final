@@ -2,6 +2,7 @@ import { Socket } from "socket.io";
 
 export interface ExtendedSocket extends Socket {
   username?: string;
+  roomId?: string;
 }
 
 export interface QuizQuestion {
@@ -18,18 +19,7 @@ export interface PlayerScore {
   correctAnswers: number;
   incorrectAnswers: number;
   totalAnswers: number;
-}
-
-export interface QuizRoom {
-  id: string;
-  players: PlayerScore[];
-  questions: QuizQuestion[];
-  currentQuestionIndex: number;
-  isQuizActive: boolean;
-  hostSocketId: string;
-  startTime?: Date;
-  endTime?: Date;
-  totalTime?: number;
+  lastAnswerTime?: number;
 }
 
 export interface QuizRoom {
@@ -56,6 +46,7 @@ export interface ClientToServerEvents {
 
 // Server-to-Client Events
 export interface ServerToClientEvents {
+  connected: (data: { message: string; socketId: string }) => void;
   joinedRoom: (data: {
     roomId: string;
     username: string;
