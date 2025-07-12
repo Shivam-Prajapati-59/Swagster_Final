@@ -35,6 +35,8 @@ const QuizInterface = () => {
   const [hasAnswered, setHasAnswered] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [quizResults, setQuizResults] = useState<any>(null);
+  const [questionAnsweredTime, setQuestionAnsweredTime] = useState(0);
+  const [questionStartTime, setQuestionStartTime] = useState<number>(0);
 
   // UI state
   const [quizStatus, setQuizStatus] = useState<string>("");
@@ -77,6 +79,7 @@ const QuizInterface = () => {
       setShowResults(false);
       setAnsweredCount(0);
       setError("");
+      setQuestionStartTime(Date.now());
     });
 
     socket.on("answerSubmitted", (data) => {
@@ -160,6 +163,10 @@ const QuizInterface = () => {
       setError("Not connected to a room");
       return;
     }
+
+    const timeTakenMs = Date.now() - questionStartTime;
+    const timeTakenSec = (timeTakenMs / 1000).toFixed(2); // e.g., "8.45"
+    setQuestionAnsweredTime(parseFloat(timeTakenSec));
 
     const socket = getSocket();
     setSelectedAnswer(answerIndex);
@@ -331,6 +338,10 @@ const QuizInterface = () => {
                     {String.fromCharCode(65 + currentQuestion.correctAnswer)}
                   </p>
                 )}
+                <div className="mt-2 text-sm text-gray-600">
+                  ⏱️ You answered in{" "}
+                  <strong>{questionAnsweredTime} seconds</strong>
+                </div>
               </div>
             )}
           </div>

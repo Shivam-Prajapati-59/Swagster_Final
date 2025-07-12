@@ -67,7 +67,7 @@ const CreateRoom = () => {
     }
 
     // Generate a new room ID
-    const newRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const newRoomId = inputRoomId;
     setInputRoomId(newRoomId);
 
     setIsLoading(true);
