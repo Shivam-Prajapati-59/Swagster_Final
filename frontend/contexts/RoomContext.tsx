@@ -7,7 +7,8 @@ interface RoomContextType {
   roomId: string | null;
   username: string | null;
   isInRoom: boolean;
-  setRoomData: (roomId: string, username: string) => void;
+  isAdmin: boolean;
+  setRoomData: (roomId: string, username: string, isAdmin?: boolean) => void;
   clearRoomData: () => void;
 }
 
@@ -18,18 +19,24 @@ const RoomContext = createContext<RoomContextType | undefined>(undefined);
 export const RoomProvider = ({ children }: { children: ReactNode }) => {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
-  const [isInRoom, setIsInRoom] = useState<boolean>(false);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
-  const setRoomData = (newRoomId: string, newUsername: string) => {
+  const isInRoom = Boolean(roomId && username);
+
+  const setRoomData = (
+    newRoomId: string,
+    newUsername: string,
+    adminStatus: boolean = false
+  ) => {
     setRoomId(newRoomId);
     setUsername(newUsername);
-    setIsInRoom(true);
+    setIsAdmin(adminStatus);
   };
 
   const clearRoomData = () => {
     setRoomId(null);
     setUsername(null);
-    setIsInRoom(false);
+    setIsAdmin(false);
   };
 
   return (
@@ -38,6 +45,7 @@ export const RoomProvider = ({ children }: { children: ReactNode }) => {
         roomId,
         username,
         isInRoom,
+        isAdmin,
         setRoomData,
         clearRoomData,
       }}
@@ -50,7 +58,7 @@ export const RoomProvider = ({ children }: { children: ReactNode }) => {
 // Custom hook to use room context
 export const useRoom = () => {
   const context = useContext(RoomContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error("useRoom must be used within a RoomProvider");
   }
   return context;

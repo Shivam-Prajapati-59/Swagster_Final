@@ -1,4 +1,4 @@
-import { DefaultEventsMap, Server } from "socket.io";
+import { Server } from "socket.io";
 import { ExtendedSocket } from "../types/socket";
 import {
   quizRooms,
@@ -8,14 +8,9 @@ import {
   isRoomAdmin,
 } from "../helpers/quizUtils";
 
-/**
- * Register quiz-related events
- * @param io - Socket.IO server instance
- * @param socket - Extended socket instance
- */
 export default function registerQuizEvents(io: Server, socket: ExtendedSocket) {
   /**
-   * Handle quiz start requests
+   * Handle quiz start requests (Admin only)
    */
   socket.on("startQuiz", (data) => {
     const { roomId } = data;
@@ -27,6 +22,12 @@ export default function registerQuizEvents(io: Server, socket: ExtendedSocket) {
         "quizError",
         "Invalid room or user. Please join a room first."
       );
+      return;
+    }
+
+    // Check if user is admin
+    if (!socket.isAdmin || !isRoomAdmin(roomId, username)) {
+      socket.emit("quizError", "Only admin can start the quiz");
       return;
     }
 
@@ -42,7 +43,7 @@ export default function registerQuizEvents(io: Server, socket: ExtendedSocket) {
       return;
     }
 
-    // Check if there are enough participants (minimum 1 for testing, can be increased)
+    // Check if there are enough participants
     if (quizRoom.participants.length < 1) {
       socket.emit("quizError", "Need at least 1 participant to start the quiz");
       return;
@@ -84,7 +85,7 @@ export default function registerQuizEvents(io: Server, socket: ExtendedSocket) {
   });
 
   /**
-   * Handle answer submissions
+   * Handle answer submissions (Participants only)
    */
   socket.on("submitAnswer", ({ roomId, answer }) => {
     // Only participants (non-admin) can submit answers
@@ -159,7 +160,7 @@ export default function registerQuizEvents(io: Server, socket: ExtendedSocket) {
   });
 
   /**
-   * Handle quiz stop requests
+   * Handle quiz stop requests (Admin only)
    */
   socket.on("stopQuiz", (data) => {
     const { roomId } = data;
@@ -168,6 +169,12 @@ export default function registerQuizEvents(io: Server, socket: ExtendedSocket) {
     // Validation
     if (!username || !roomId || socket.roomId !== roomId) {
       socket.emit("quizError", "Invalid room or user");
+      return;
+    }
+
+    // Check if user is admin
+    if (!socket.isAdmin || !isRoomAdmin(roomId, username)) {
+      socket.emit("quizError", "Only admin can stop the quiz");
       return;
     }
 
@@ -198,29 +205,4 @@ export default function registerQuizEvents(io: Server, socket: ExtendedSocket) {
 
     console.log(`Quiz stopped in room ${roomId} by ${username}`);
   });
-
-  // Admin-only events
-  socket.on("nextQuestion", ({ roomId }) => {
-    if (!socket.isAdmin || !isRoomAdmin(roomId, socket.username!)) {
-      socket.emit("error", { message: "Only admin can control quiz flow" });
-      return;
-    }
-
-    nextQuestion(io, roomId);
-  });
-
-  socket.on("endQuiz", ({ roomId }) => {
-    if (!socket.isAdmin || !isRoomAdmin(roomId, socket.username!)) {
-      socket.emit("error", { message: "Only admin can end quiz" });
-      return;
-    }
-
-    endQuiz(io, roomId);
-  });
-}
-function endQuiz(
-  io: Server<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, any>,
-  roomId: any
-) {
-  throw new Error("Function not implemented.");
 }

@@ -37,7 +37,11 @@ export interface QuizRoom {
 
 // Client-to-Server Events
 export interface ClientToServerEvents {
-  joinRoom: (data: { roomId: string; username: string }) => void;
+  joinRoom: (data: {
+    roomId: string;
+    username: string;
+    isAdmin: boolean;
+  }) => void;
   leaveRoom: (data: { roomId: string; username: string }) => void;
   getRoomInfo: (roomId: string) => void;
   startQuiz: (data: { roomId: string }) => void;
@@ -53,6 +57,8 @@ export interface ServerToClientEvents {
     roomId: string;
     username: string;
     participants: string[];
+    admin: string;
+    isAdmin: boolean;
   }) => void;
   joinError: (message: string) => void;
   participants: (participants: string[]) => void;
@@ -61,8 +67,17 @@ export interface ServerToClientEvents {
   roomInfo: (data: {
     roomId: string;
     participants: string[];
+    admin: string;
     participantCount: number;
+    isActive: boolean;
   }) => void;
+  roomDeleted: (data: { message: string }) => void;
+  participantJoined: (data: {
+    username: string;
+    participants: string[];
+    admin: string;
+  }) => void;
+  participantLeft: (data: { username: string; participants: string[] }) => void;
 
   // Quiz Events
   quizStarted: (data: { message: string; totalQuestions: number }) => void;
@@ -78,7 +93,6 @@ export interface ServerToClientEvents {
     totalParticipants: number;
   }) => void;
   participantAnswered: (data: {
-    username: string;
     answeredCount: number;
     totalParticipants: number;
   }) => void;
