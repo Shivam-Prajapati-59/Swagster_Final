@@ -3,6 +3,7 @@ import { Socket } from "socket.io";
 export interface ExtendedSocket extends Socket {
   username?: string;
   roomId?: string;
+  isAdmin?: boolean;
 }
 
 export interface QuizQuestion {
@@ -24,6 +25,7 @@ export interface PlayerScore {
 
 export interface QuizRoom {
   roomId: string;
+  admin: string;
   participants: string[];
   quiz: QuizQuestion[];
   currentQuestionIndex: number;

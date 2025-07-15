@@ -1,10 +1,11 @@
-import { Server } from "socket.io";
+import { DefaultEventsMap, Server } from "socket.io";
 import { ExtendedSocket } from "../types/socket";
 import {
   quizRooms,
   calculateScore,
   updateLeaderboard,
   nextQuestion,
+  isRoomAdmin,
 } from "../helpers/quizUtils";
 
 /**
@@ -22,7 +23,10 @@ export default function registerQuizEvents(io: Server, socket: ExtendedSocket) {
 
     // Validation
     if (!username || !roomId || socket.roomId !== roomId) {
-      socket.emit("quizError", "Invalid room or user. Please join a room first.");
+      socket.emit(
+        "quizError",
+        "Invalid room or user. Please join a room first."
+      );
       return;
     }
 
@@ -82,107 +86,76 @@ export default function registerQuizEvents(io: Server, socket: ExtendedSocket) {
   /**
    * Handle answer submissions
    */
-  socket.on("submitAnswer", (data) => {
-    const { roomId, answer } = data;
-    const username = socket.username;
-
-    // Validation
-    if (!username || !roomId || socket.roomId !== roomId) {
-      socket.emit("quizError", "Invalid room or user. Please join a room first.");
+  socket.on("submitAnswer", ({ roomId, answer }) => {
+    // Only participants (non-admin) can submit answers
+    if (socket.isAdmin) {
+      socket.emit("quizError", "Admin cannot participate in quiz");
       return;
     }
 
-    if (typeof answer !== "number") {
-      socket.emit("quizError", "Invalid answer format");
+    const username = socket.username;
+    if (!username || !roomId || socket.roomId !== roomId) {
+      socket.emit(
+        "quizError",
+        "Invalid room or user. Please join a room first."
+      );
       return;
     }
 
     const quizRoom = quizRooms[roomId];
-    if (!quizRoom || !quizRoom.isActive || quizRoom.currentQuestionIndex < 0) {
-      socket.emit("quizError", "No active quiz question");
+    if (!quizRoom || !quizRoom.isActive) {
+      socket.emit("quizError", "No active quiz in this room");
       return;
     }
 
-    // Check if user already answered this question
+    // Check if user already answered
     if (quizRoom.answers[username]) {
       socket.emit("quizError", "You have already answered this question");
-      return;
-    }
-
-    const currentQuestion = quizRoom.quiz[quizRoom.currentQuestionIndex];
-
-    // Validate answer option
-    if (answer < 0 || answer >= currentQuestion.options.length) {
-      socket.emit("quizError", "Invalid answer option");
-      return;
-    }
-
-    const currentTime = Date.now();
-    const timeElapsed = Math.floor(
-      (currentTime - (quizRoom.questionStartTime || 0)) / 1000
-    );
-
-    // Check if time limit exceeded
-    if (timeElapsed >= currentQuestion.timeLimit) {
-      socket.emit("quizError", "Time is up for this question");
       return;
     }
 
     // Record the answer
     quizRoom.answers[username] = {
       answer,
-      timestamp: currentTime,
+      timestamp: Date.now(),
     };
 
-    // Update player statistics
+    // Update player score
+    const currentQuestion = quizRoom.quiz[quizRoom.currentQuestionIndex];
     const player = quizRoom.leaderboard.find((p) => p.username === username);
+
     if (player) {
       player.totalAnswers++;
-      player.lastAnswerTime = currentTime;
 
-      const isCorrect = answer === currentQuestion.correctAnswer;
-      if (isCorrect) {
+      if (answer === currentQuestion.correctAnswer) {
         player.correctAnswers++;
-        const timeLeft = currentQuestion.timeLimit - timeElapsed;
-        const points = calculateScore(true, timeLeft, currentQuestion.timeLimit);
-        player.score += points;
-
-        console.log(
-          `${username} answered correctly and earned ${points} points`
-        );
+        // Calculate score based on time
+        const timeElapsed =
+          (Date.now() - (quizRoom.questionStartTime || 0)) / 1000;
+        const timeLeft = Math.max(0, currentQuestion.timeLimit - timeElapsed);
+        const score = calculateScore(true, timeLeft, currentQuestion.timeLimit);
+        player.score += score;
       } else {
         player.incorrectAnswers++;
-        console.log(`${username} answered incorrectly`);
       }
+
+      player.lastAnswerTime = Date.now();
     }
 
-    // Notify user that answer was submitted
+    // Notify the participant
     socket.emit("answerSubmitted", {
-      message: "Answer submitted successfully!",
+      message: "Answer submitted successfully",
       answeredCount: Object.keys(quizRoom.answers).length,
       totalParticipants: quizRoom.participants.length,
     });
 
-    // Notify other participants about the answer submission
-    socket.to(roomId).emit("participantAnswered", {
-      username,
+    // Notify all participants about answer count
+    io.to(roomId).emit("participantAnswered", {
       answeredCount: Object.keys(quizRoom.answers).length,
       totalParticipants: quizRoom.participants.length,
     });
 
-    console.log(
-      `${username} submitted answer ${answer} for question ${
-        quizRoom.currentQuestionIndex + 1
-      } in room ${roomId}`
-    );
-
-    // Check if all participants have answered
-    if (Object.keys(quizRoom.answers).length === quizRoom.participants.length) {
-      console.log(
-        `All participants answered question ${quizRoom.currentQuestionIndex + 1} in room ${roomId}`
-      );
-      // All answered - could trigger immediate next question or just wait for timer
-    }
+    console.log(`${username} answered question in room ${roomId}`);
   });
 
   /**
@@ -225,4 +198,29 @@ export default function registerQuizEvents(io: Server, socket: ExtendedSocket) {
 
     console.log(`Quiz stopped in room ${roomId} by ${username}`);
   });
+
+  // Admin-only events
+  socket.on("nextQuestion", ({ roomId }) => {
+    if (!socket.isAdmin || !isRoomAdmin(roomId, socket.username!)) {
+      socket.emit("error", { message: "Only admin can control quiz flow" });
+      return;
+    }
+
+    nextQuestion(io, roomId);
+  });
+
+  socket.on("endQuiz", ({ roomId }) => {
+    if (!socket.isAdmin || !isRoomAdmin(roomId, socket.username!)) {
+      socket.emit("error", { message: "Only admin can end quiz" });
+      return;
+    }
+
+    endQuiz(io, roomId);
+  });
+}
+function endQuiz(
+  io: Server<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, any>,
+  roomId: any
+) {
+  throw new Error("Function not implemented.");
 }

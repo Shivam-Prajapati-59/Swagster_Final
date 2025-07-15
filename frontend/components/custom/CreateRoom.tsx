@@ -10,6 +10,7 @@ const CreateRoom = () => {
   const [inputUsername, setInputUsername] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
   useEffect(() => {
     const socket = getSocket();
@@ -18,6 +19,7 @@ const CreateRoom = () => {
     socket.on("joinedRoom", (data) => {
       console.log("Successfully joined room:", data);
       setRoomData(data.roomId, data.username);
+      setIsAdmin(data.isAdmin || false);
       setIsLoading(false);
       setError("");
     });
@@ -29,12 +31,21 @@ const CreateRoom = () => {
       setIsLoading(false);
     });
 
+    // Listen for room deletion
+    socket.on("roomDeleted", (data) => {
+      console.log("Room deleted:", data.message);
+      setError(data.message);
+      clearRoomData();
+      setIsAdmin(false);
+    });
+
     // Cleanup listeners on unmount
     return () => {
       socket.off("joinedRoom");
       socket.off("joinError");
+      socket.off("roomDeleted");
     };
-  }, [setRoomData]);
+  }, [setRoomData, clearRoomData]);
 
   // Generate a random room ID
   const generateRoomId = () => {
@@ -56,6 +67,7 @@ const CreateRoom = () => {
     socket.emit("joinRoom", {
       roomId: inputRoomId.trim(),
       username: inputUsername.trim(),
+      isAdmin: false, // Not an admin when joining existing room
     });
   };
 
@@ -66,9 +78,11 @@ const CreateRoom = () => {
       return;
     }
 
-    // Generate a new room ID
-    const newRoomId = inputRoomId;
-    setInputRoomId(newRoomId);
+    // Generate room ID if empty
+    let newRoomId = inputRoomId.trim();
+    if (!newRoomId) {
+      newRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+    }
 
     setIsLoading(true);
     setError("");
@@ -77,6 +91,7 @@ const CreateRoom = () => {
     socket.emit("joinRoom", {
       roomId: newRoomId,
       username: inputUsername.trim(),
+      isAdmin: true, // Mark as admin for new room
     });
   };
 
@@ -90,6 +105,7 @@ const CreateRoom = () => {
     setInputRoomId("");
     setInputUsername("");
     setError("");
+    setIsAdmin(false);
   };
 
   // If user is in a room, show room info and leave option
@@ -108,15 +124,27 @@ const CreateRoom = () => {
                   {roomId}
                 </span>
               </p>
-              <p className="text-gray-600">
+              <p className="text-gray-600 mb-2">
                 <strong>Username:</strong>
                 <span className="font-bold text-green-600 ml-2">
                   {username}
                 </span>
               </p>
+              <p className="text-gray-600">
+                <strong>Role:</strong>
+                <span
+                  className={`font-bold ml-2 ${
+                    isAdmin ? "text-yellow-600" : "text-blue-600"
+                  }`}
+                >
+                  {isAdmin ? "👑 Admin" : "👤 Participant"}
+                </span>
+              </p>
             </div>
             <p className="text-sm text-gray-500 mb-4">
-              Share the Room ID with others to let them join!
+              {isAdmin
+                ? "You can start the quiz when participants join!"
+                : "Share the Room ID with others to let them join!"}
             </p>
           </div>
 
@@ -175,6 +203,7 @@ const CreateRoom = () => {
               onClick={generateRoomId}
               disabled={isLoading}
               className="px-4 py-3 bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 text-white rounded-lg font-medium transition-colors"
+              title="Generate random Room ID"
             >
               🎲
             </button>
@@ -187,6 +216,7 @@ const CreateRoom = () => {
             onClick={handleCreateRoom}
             disabled={!inputUsername.trim() || isLoading}
             className="flex-1 p-3 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center"
+            title="Create a new room (you'll be the admin)"
           >
             {isLoading ? "⏳" : "🆕 Create"}
           </button>
@@ -195,14 +225,15 @@ const CreateRoom = () => {
             onClick={handleJoinRoom}
             disabled={!inputRoomId.trim() || !inputUsername.trim() || isLoading}
             className="flex-1 p-3 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center"
+            title="Join an existing room"
           >
             {isLoading ? "⏳" : "🚪 Join"}
           </button>
         </div>
 
         <p className="text-xs text-gray-500 text-center mt-4">
-          💡 Create a room to start a new quiz, or join an existing room with
-          its ID
+          💡 Create a room to start a new quiz as admin, or join an existing
+          room with its ID
         </p>
       </div>
     </div>

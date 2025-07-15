@@ -196,15 +196,20 @@ function endQuiz(io: Server, roomId: string): void {
 }
 
 /**
- * Create a new quiz room
+ * Create a new quiz room with admin
  * @param roomId - Room identifier
+ * @param adminUsername - Admin username who created the room
  * @returns Created quiz room
  */
-export function createQuizRoom(roomId: string): QuizRoom {
+export function createQuizRoom(
+  roomId: string,
+  adminUsername: string
+): QuizRoom {
   const newRoom: QuizRoom = {
     roomId,
+    admin: adminUsername, // Set admin
     participants: [],
-    quiz: [...sampleQuiz], // Copy of sample quiz
+    quiz: [...sampleQuiz],
     currentQuestionIndex: -1,
     isActive: false,
     leaderboard: [],
@@ -217,13 +222,16 @@ export function createQuizRoom(roomId: string): QuizRoom {
 }
 
 /**
- * Add participant to quiz room
+ * Add participant to quiz room (only non-admin users)
  * @param roomId - Room identifier
  * @param username - Participant username
  */
 export function addParticipant(roomId: string, username: string): void {
   const quizRoom = quizRooms[roomId];
   if (!quizRoom) return;
+
+  // Don't add admin as participant
+  if (username === quizRoom.admin) return;
 
   // Add to participants if not already present
   if (!quizRoom.participants.includes(username)) {
@@ -250,6 +258,12 @@ export function removeParticipant(roomId: string, username: string): void {
   const quizRoom = quizRooms[roomId];
   if (!quizRoom) return;
 
+  // If admin leaves, delete the room
+  if (username === quizRoom.admin) {
+    delete quizRooms[roomId];
+    return;
+  }
+
   // Remove from participants
   const participantIndex = quizRoom.participants.indexOf(username);
   if (participantIndex > -1) {
@@ -263,9 +277,59 @@ export function removeParticipant(roomId: string, username: string): void {
   if (leaderboardIndex > -1) {
     quizRoom.leaderboard.splice(leaderboardIndex, 1);
   }
+}
 
-  // Delete room if no participants left
-  if (quizRoom.participants.length === 0) {
-    delete quizRooms[roomId];
+/**
+ * Check if user is admin of the room
+ * @param roomId - Room identifier
+ * @param username - Username to check
+ * @returns true if user is admin
+ */
+export function isRoomAdmin(roomId: string, username: string): boolean {
+  const quizRoom = quizRooms[roomId];
+  return quizRoom ? quizRoom.admin === username : false;
+}
+
+/**
+ * Start quiz (only admin can start)
+ * @param io - Socket.IO server instance
+ * @param roomId - Room identifier
+ * @param adminUsername - Admin username
+ * @returns true if quiz started successfully
+ */
+export function startQuiz(
+  io: Server,
+  roomId: string,
+  adminUsername: string
+): boolean {
+  const quizRoom = quizRooms[roomId];
+  if (!quizRoom || quizRoom.admin !== adminUsername || quizRoom.isActive) {
+    return false;
   }
+
+  if (quizRoom.participants.length === 0) {
+    return false; // No participants to start quiz
+  }
+
+  quizRoom.isActive = true;
+  quizRoom.currentQuestionIndex = 0;
+  quizRoom.questionStartTime = Date.now();
+
+  const firstQuestion = quizRoom.quiz[0];
+
+  // Broadcast quiz start to participants
+  io.to(roomId).emit("quizStarted", {
+    message: "Quiz started!",
+    question: firstQuestion,
+    questionNumber: 1,
+    totalQuestions: quizRoom.quiz.length,
+    timeLeft: firstQuestion.timeLimit,
+  });
+
+  // Set timer for first question
+  setTimeout(() => {
+    handleQuestionTimeout(io, roomId);
+  }, firstQuestion.timeLimit * 1000);
+
+  return true;
 }
